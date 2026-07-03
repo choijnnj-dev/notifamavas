@@ -36,7 +36,7 @@ def check_mumbai_market_panchang():
     moon_lon = (float(moon.ra) * 15 - 24.2) % 360  
     nakshatra_idx = int(moon_lon / 13.33) % 27
     
-    # Map the financial wealth markers you want to trace (Emojis removed from text strings)
+    # Map the financial wealth markers you want to trace
     nakshatras = {
         0: "Ashwini (Swift / Day Trades)", 
         3: "Rohini (Fixed / Blue-Chip Holding)", 
@@ -47,7 +47,7 @@ def check_mumbai_market_panchang():
     }
     star_name = nakshatras.get(nakshatra_idx, "Standard Multi-Tier Star Alignment")
 
-    # Dynamic Indicators Flags (All emojis removed from strings)
+    # Dynamic Indicators Flags
     is_shukla_paksha = not is_amavasya and (next_new_moon_dt - target_date_mumbai).days > 14
     
     yoga_alert = "Normal Daily Balance"
@@ -93,14 +93,14 @@ def check_mumbai_market_panchang():
 
     title_tag = "Mumbai Amavasya Alert" if is_amavasya else "Daily Financial Panchang Update"
 
-    # Send data completely sanitized of text-string emojis
+    # Send data completely sanitized with clean headers
     requests.post(
         f"https://ntfy.sh/{NTFY_TOPIC}",
         data=message_body.encode('utf-8'),
         headers={
             "Title": title_tag,
             "Priority": "high",
-            "Tags": "chart_with_upwards_trend,warning,bell" # Emojis live safely out here as metadata tags!
+            "Tags": "chart_with_upwards_trend,warning,bell"
         }
     )
     print("Market setup notification dispatched cleanly to device.")
