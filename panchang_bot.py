@@ -1,8 +1,9 @@
 import requests
 from datetime import datetime, timedelta
 import pytz
-from skyfield.api import load
+from skyfield.api import Loader
 from skyfield import almanac
+import skyfield_data
 
 # 1. Connected directly to your mobile app channel
 NTFY_TOPIC = "mumama"
@@ -20,9 +21,11 @@ def check_mumbai_market_panchang():
     target_date_nl = now_nl + timedelta(days=1)
     target_date_mumbai = target_date_nl.astimezone(mumbai_tz)
     
-    # 2. Mathematical Moon calculations via High-Precision Astronomical Models
+    # 2. Mathematical Moon calculations via Built-in Offline Data
+    # This completely avoids downloading from NASA/JPL servers at runtime!
+    load = Loader(skyfield_data.get_skyfield_data_path())
     eph = load('de421.bsp')
-    ts = load.timescale()
+    ts = load.timescale(builtin=True)
     
     # Set a strict 48-hour scanning array centered on the evaluation window
     t0 = ts.from_datetime(target_date_mumbai - timedelta(days=1))
@@ -74,18 +77,15 @@ def check_mumbai_market_panchang():
             karana_alert = "📈 Bava / Balava Growth Window Open"
 
     # 3. Micro-target the Volatile Warning Windows (Rahu & Gulika Kaal)
-    # Calculated strictly off Mumbai sunrise patterns and shifted seamlessly to Netherlands clocks
     mumbai_sunrise = target_date_mumbai.replace(hour=6, minute=0, second=0, microsecond=0)
     weekday = target_date_mumbai.weekday()  # 0 = Monday, 6 = Sunday
     
-    # Canonical slot maps for the 1.5-hour sequence distributions
     rahu_slots = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
     gulika_slots = {0: 6, 1: 5, 2: 4, 3: 3, 4: 2, 5: 1, 6: 7}
     
     def calculate_window_clocks(slot_index):
         window_start = mumbai_sunrise + timedelta(hours=(slot_index - 1) * 1.5)
         window_end = window_start + timedelta(hours=1.5)
-        # Shift the structural timestamps into your target local wall clock
         return f"{window_start.astimezone(nl_tz).strftime('%I:%M %p')} to {window_end.astimezone(nl_tz).strftime('%I:%M %p')}"
 
     rahu_time_string = calculate_window_clocks(rahu_slots[weekday])
