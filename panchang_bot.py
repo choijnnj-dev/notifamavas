@@ -30,7 +30,8 @@ def check_amavasya_mumbai():
     exact_time_str = ""
     
     for t, phase in zip(times, phases):
-        if phase == 0:  # 0 represents the exact instant of the New Moon (Amavasya point)
+        #if phase == 0:  # 0 represents the exact instant of the New Moon (Amavasya point)
+        if True:
             amavasya_detected = True
             # Convert exact astronomical moment to local Mumbai Time
             local_time = t.astimezone(mumbai_tz)
