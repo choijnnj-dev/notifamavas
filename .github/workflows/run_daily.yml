@@ -4,13 +4,13 @@ on:
   schedule:
     # 17:00 UTC triggers exactly at 19:00 (7:00 PM) Netherlands Local Time
     - cron: '0 17 * * *'
-  workflow_dispatch: 
+  workflow_dispatch: # Keeps the manual "Run workflow" test button enabled
 
 jobs:
   check-panchang:
     runs-on: ubuntu-latest
     permissions:
-      actions: write # Required by the keepalive step below
+      actions: write # Grants permissions to the automated keepalive safety step below
     steps:
     - name: Check out repo code
       uses: actions/checkout@v4
@@ -22,12 +22,11 @@ jobs:
 
     - name: Install Essential Core Engines
       run: |
-        pip install requests skyfield pytz
+        pip install requests skyfield pytz skyfield-data
 
     - name: Run Code
       run: python panchang_bot.py
 
-    # 🔥 ADD THIS STEP BELOW TO RUN FOREVER WITHOUT PAUSING:
     - name: Prevent GitHub from pausing this script due to inactivity
       if: github.event_name == 'schedule'
       uses: liskin/gh-workflow-keepalive@v1
