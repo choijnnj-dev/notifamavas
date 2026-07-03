@@ -4,13 +4,13 @@ on:
   schedule:
     # 17:00 UTC triggers exactly at 19:00 (7:00 PM) Netherlands Local Time
     - cron: '0 17 * * *'
-  workflow_dispatch: # Keeps the manual "Run workflow" test button enabled
+  workflow_dispatch: 
 
 jobs:
   check-panchang:
     runs-on: ubuntu-latest
     permissions:
-      actions: write # Grants permissions to the automated keepalive safety step below
+      actions: write
     steps:
     - name: Check out repo code
       uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
 
     - name: Install Essential Core Engines
       run: |
-        pip install requests skyfield pytz skyfield-data
+        pip install requests pytz ephem
 
     - name: Run Code
       run: python panchang_bot.py
