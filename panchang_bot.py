@@ -33,22 +33,21 @@ def check_mumbai_market_panchang():
     
     # Calculate approximate Nakshatra offset mapping (Sidereal Lahiri standard)
     moon = ephem.Moon(gate)
-    # Convert equatorial coordinates to approximate sidereal longitude mapping
-    moon_lon = (float(moon.ra) * 15 - 24.2) % 360  # Apply generic Lahiri offset adjustment
+    moon_lon = (float(moon.ra) * 15 - 24.2) % 360  
     nakshatra_idx = int(moon_lon / 13.33) % 27
     
-    # Map the financial wealth markers you want to trace
+    # Map the financial wealth markers you want to trace (Emojis removed from text strings)
     nakshatras = {
-        0: "Ashwini ⚡ (Swift / Day Trades)", 
-        3: "Rohini 🪵 (Fixed / Blue-Chip Holding)", 
-        7: "Pushya 🌟 (Super Wealth Nourisher)",
-        13: "Chitra ⚡ (Swift / Day Trades)", 
-        21: "Shravana 🪵 (Fixed / Blue-Chip Holding)", 
-        26: "Revati ⚡ (Swift / Day Trades)"
+        0: "Ashwini (Swift / Day Trades)", 
+        3: "Rohini (Fixed / Blue-Chip Holding)", 
+        7: "Pushya (Super Wealth Nourisher)",
+        13: "Chitra (Swift / Day Trades)", 
+        21: "Shravana (Fixed / Blue-Chip Holding)", 
+        26: "Revati (Swift / Day Trades)"
     }
     star_name = nakshatras.get(nakshatra_idx, "Standard Multi-Tier Star Alignment")
 
-    # Dynamic Indicators Flags
+    # Dynamic Indicators Flags (All emojis removed from strings)
     is_shukla_paksha = not is_amavasya and (next_new_moon_dt - target_date_mumbai).days > 14
     
     yoga_alert = "Normal Daily Balance"
@@ -57,17 +56,17 @@ def check_mumbai_market_panchang():
     if is_amavasya:
         tithi_name = "Amavasya (New Moon Period)"
     elif is_shukla_paksha:
-        tithi_name = "Shukla Paksha (Waxing Light) 📈"
+        tithi_name = "Shukla Paksha (Waxing Light) [UPWARD TREND]"
         if target_date_mumbai.day % 15 in [2, 3, 5, 11, 13]:
             tithi_name += " - Strategic Wealth Tithi Accumulation Active!"
-            yoga_alert = "✅ Amrita / Sarvartha Siddhi Operational"
-            karana_alert = "📈 Bava / Balava Growth Window Open"
+            yoga_alert = "Amrita / Sarvartha Siddhi Operational"
+            karana_alert = "Bava / Balava Growth Window Open [GROWTH]"
     else:
-        tithi_name = "Krishna Paksha (Waning Light) 📉"
+        tithi_name = "Krishna Paksha (Waning Light) [DOWNWARD TREND]"
 
     # 3. Micro-target the Volatile Warning Windows (Rahu & Gulika Kaal)
     mumbai_sunrise = target_date_mumbai.replace(hour=6, minute=0, second=0, microsecond=0)
-    weekday = target_date_mumbai.weekday()  # 0 = Monday, 6 = Sunday
+    weekday = target_date_mumbai.weekday()  
     
     rahu_slots = {0: 2, 1: 7, 2: 5, 3: 6, 4: 4, 5: 3, 6: 8}
     gulika_slots = {0: 6, 1: 5, 2: 4, 3: 3, 4: 2, 5: 1, 6: 7}
@@ -80,27 +79,28 @@ def check_mumbai_market_panchang():
     rahu_time_string = calculate_window_clocks(rahu_slots[weekday])
     gulika_time_string = calculate_window_clocks(gulika_slots[weekday])
 
-    # 4. Construct and Ship the Push Alert Payload
+    # 4. Construct the Main Text Body
     message_body = (
-        f"📅 **Market Trade Day:** {target_date_nl.strftime('%A, %d-%b-%Y')}\n"
-        f"⏳ *Calculations explicitly anchored to Mumbai metrics*\n\n"
-        f"🌗 **Tithi / Paksha System:**\n• {tithi_name}\n\n"
-        f"🌟 **Financial Star Alignment:**\n• {star_name}\n\n"
-        f"📈 **Yogas & Karanas:**\n• {yoga_alert}\n• {karana_alert}\n\n"
-        f"⚠️ **NETHERLANDS TIME CAUTION WINDOWS:**\n"
-        f"🚫 **Rahu Kaal:** {rahu_time_string} (Impulsive Trap)\n"
-        f"⏳ **Gulika Kaal:** {gulika_time_string} (Stagnant Stalling Risk)"
+        f"Date Checked: {target_date_nl.strftime('%A, %d-%b-%Y')}\n"
+        f"Calculations explicitly anchored to Mumbai metrics\n\n"
+        f"Tithi / Paksha System:\n• {tithi_name}\n\n"
+        f"Financial Star Alignment:\n• {star_name}\n\n"
+        f"Yogas & Karanas:\n• {yoga_alert}\n• {karana_alert}\n\n"
+        f"NETHERLANDS TIME CAUTION WINDOWS:\n"
+        f"Rahu Kaal: {rahu_time_string} (Impulsive Trap)\n"
+        f"Gulika Kaal: {gulika_time_string} (Stagnant Stalling Risk)"
     )
 
     title_tag = "Mumbai Amavasya Alert" if is_amavasya else "Daily Financial Panchang Update"
 
+    # Send data completely sanitized of text-string emojis
     requests.post(
         f"https://ntfy.sh/{NTFY_TOPIC}",
         data=message_body.encode('utf-8'),
         headers={
             "Title": title_tag,
             "Priority": "high",
-            "Tags": "chart_with_upwards_trend,warning,bell"
+            "Tags": "chart_with_upwards_trend,warning,bell" # Emojis live safely out here as metadata tags!
         }
     )
     print("Market setup notification dispatched cleanly to device.")
