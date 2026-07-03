@@ -1,0 +1,26 @@
+name: Daily Panchang Checker
+
+on:
+  schedule:
+    # 05:00 UTC corresponds exactly to 7:00 AM Netherlands Time (CEST)
+    - cron: '0 5 * * *'
+  workflow_dispatch: # This keeps the manual "Run workflow" button active for testing
+
+jobs:
+  check-panchang:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repo code
+      uses: actions/checkout@v4
+
+    - name: Set up Python environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Scraping & Astro Tools
+      run: |
+        pip install requests skyfield pytz
+
+    - name: Run Code
+      run: python panchang_bot.py
