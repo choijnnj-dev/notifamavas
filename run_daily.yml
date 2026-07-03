@@ -1,0 +1,26 @@
+name: Daily Panchang Checker
+
+on:
+  schedule:
+    # 06:00 UTC triggers at 08:00 AM (Summer) or 07:00 AM (Winter) Netherlands local time
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Keeps the manual play button active in your GitHub UI for instant testing
+
+jobs:
+  check-panchang:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repo code
+      uses: actions/checkout@v4
+
+    - name: Set up Python environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install Scraping & Astro Tools
+      run: |
+        pip install requests skyfield pytz
+
+    - name: Run Code
+      run: python panchang_bot.py
