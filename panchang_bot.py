@@ -5,7 +5,7 @@ from skyfield import almanac
 import pytz
 
 # 1. CHANGE THIS to the exact topic name in your mobile ntfy app
-NTFY_TOPIC = "mumbai_amavasya_alerts_9988"
+NTFY_TOPIC = "mumama"
 
 def check_amavasya_mumbai():
     # Mumbai coordinates and timezone settings
