@@ -2,13 +2,15 @@ name: Daily Panchang Checker
 
 on:
   schedule:
-    # 17:00 UTC corresponds exactly to 19:00 (7:00 PM) Netherlands Time
+    # 17:00 UTC triggers exactly at 19:00 (7:00 PM) Netherlands Local Time
     - cron: '0 17 * * *'
-  workflow_dispatch: # Keeps manual button testing enabled
+  workflow_dispatch: 
 
 jobs:
   check-panchang:
     runs-on: ubuntu-latest
+    permissions:
+      actions: write # Required by the keepalive step below
     steps:
     - name: Check out repo code
       uses: actions/checkout@v4
@@ -18,9 +20,14 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Scraping & Astro Tools
+    - name: Install Essential Core Engines
       run: |
         pip install requests skyfield pytz
 
     - name: Run Code
       run: python panchang_bot.py
+
+    # 🔥 ADD THIS STEP BELOW TO RUN FOREVER WITHOUT PAUSING:
+    - name: Prevent GitHub from pausing this script due to inactivity
+      if: github.event_name == 'schedule'
+      uses: liskin/gh-workflow-keepalive@v1
