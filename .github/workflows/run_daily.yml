@@ -2,9 +2,9 @@ name: Daily Panchang Checker
 
 on:
   schedule:
-    # 05:00 UTC corresponds exactly to 7:00 AM Netherlands Time (CEST)
-    - cron: '0 5 * * *'
-  workflow_dispatch: # This keeps the manual "Run workflow" button active for testing
+    # 17:00 UTC corresponds exactly to 19:00 (7:00 PM) Netherlands Time
+    - cron: '0 17 * * *'
+  workflow_dispatch: # Keeps manual button testing enabled
 
 jobs:
   check-panchang:
