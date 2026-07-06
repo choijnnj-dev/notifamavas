@@ -3,7 +3,7 @@ name: Daily Panchang Checker
 on:
   schedule:
     # 17:00 UTC triggers exactly at 19:00 (7:00 PM) Netherlands Local Time
-    - cron: '0 17 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch: 
 
 jobs:
