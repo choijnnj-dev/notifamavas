@@ -2,15 +2,13 @@ name: Daily Panchang Checker
 
 on:
   schedule:
-    # 17:00 UTC triggers exactly at 19:00 (7:00 PM) Netherlands Local Time
+    # Adjusted to 10:00 UTC (12:00 PM NL Time) to ensure data is available
     - cron: '0 10 * * *'
   workflow_dispatch: 
 
 jobs:
   check-panchang:
     runs-on: ubuntu-latest
-    permissions:
-      actions: write
     steps:
     - name: Check out repo code
       uses: actions/checkout@v4
@@ -20,13 +18,14 @@ jobs:
       with:
         python-version: '3.10'
 
-    - name: Install Essential Core Engines
+    - name: Install Dependencies
       run: |
-        pip install requests pytz ephem
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
 
     - name: Run Code
       run: python panchang_bot.py
 
-    - name: Prevent GitHub from pausing this script due to inactivity
+    - name: Keepalive
       if: github.event_name == 'schedule'
       uses: liskin/gh-workflow-keepalive@v1
