@@ -10,56 +10,50 @@ LOC_LAT, LOC_LON = 19.0760, 72.8777
 location = GeoLocation("Mumbai", LOC_LON, LOC_LAT)
 Calculate.SetAPIKey('FreeAPIUser')
 
-def get_day_data(target_dt):
-    """Calculates all required Vedic data for a specific day."""
+def get_day_report(target_dt):
+    """Calculates all metrics and returns a list of formatted strings."""
     time_data = Time(
-        hour=12, minute=0, # Mid-day calculation for stable daily markers
+        hour=12, minute=0,
         day=target_dt.day, month=target_dt.month, year=target_dt.year, 
         offset="+05:30", geolocation=location
     )
     
-    # Accurate Vedic markers
     tithi = str(Calculate.LunarDay(time_data))
     nakshatra = str(Calculate.MoonConstellation(time_data))
     karana = str(Calculate.Karana(time_data))
     
-    # Rahu Kaal (Logic based on day of the week)
-    # Mapping: Mon=0 ... Sun=6
-    weekday = target_dt.weekday()
-    # Rahu Kaal standard start/end offsets from sunrise (approx 06:00)
-    rahu_table = {0: (7.5, 9.0), 1: (15.0, 16.5), 2: (12.0, 13.5), 
-                  3: (13.5, 15.0), 4: (10.5, 12.0), 5: (9.0, 10.5), 6: (16.5, 18.0)}
-    start_h, end_h = rahu_table[weekday]
-    rahu_start = (target_dt.replace(hour=6, minute=0) + timedelta(hours=start_h)).strftime('%I:%M %p')
-    rahu_end = (target_dt.replace(hour=6, minute=0) + timedelta(hours=end_h)).strftime('%I:%M %p')
+    # Paksha calculation: Shukla if Tithi 1-15, Krishna if 16-30
+    # Vedastro Tithi string usually contains the name
+    paksha = "Shukla Paksha" if any(x in tithi for x in ["Shukla", "Pratipada", "Dvitiya", "Tritiya", "Chaturthi", "Panchami", "Shasthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi", "Purnima"]) else "Krishna Paksha"
 
-    return {
-        "tithi": tithi,
-        "nakshatra": nakshatra,
-        "is_bhadra": "Vishti" in karana,
-        "rahu": f"{rahu_start} - {rahu_end}"
-    }
+    # Rahu Kaal (Standard Vedic Table based on weekday)
+    weekday = target_dt.weekday()
+    rahu_table = {0: ("07:30 AM", "09:00 AM"), 1: ("03:00 PM", "04:30 PM"), 2: ("12:00 PM", "01:30 PM"), 
+                  3: ("01:30 PM", "03:00 PM"), 4: ("10:30 AM", "12:00 PM"), 5: ("09:00 AM", "10:30 AM"), 6: ("04:30 PM", "06:00 PM")}
+    rahu_start, rahu_end = rahu_table[weekday]
+
+    lines = [
+        f"• Tithi: {tithi}",
+        f"• Paksha: {paksha}",
+        f"• Nakshatra: {nakshatra}",
+        f"• Rahu Kaal: {rahu_start} to {rahu_end}"
+    ]
+    
+    if "Vishti" in karana:
+        lines.append("• ALERT: Bhadra Kaal ACTIVE (High Friction)")
+    
+    for phase in ["Amavasya", "Purnima", "Ekadashi"]:
+        if phase in tithi:
+            lines.append(f"• Special Phase: {phase} Active")
+            
+    return lines
 
 def generate_report():
-    report = [f"=== 2-DAY DETAILED PANCHANG FORECAST ==="]
-    
+    report = ["=== 2-DAY DETAILED PANCHANG FORECAST ==="]
     for i in range(2):
         target_dt = datetime.now(IN_TZ) + timedelta(days=i)
-        data = get_day_data(target_dt)
-        
-        day_label = "Today" if i == 0 else "Tomorrow"
-        report.append(f"\n--- {day_label} ({target_dt.strftime('%d-%b-%Y')}) ---")
-        report.append(f"• Tithi: {data['tithi']}")
-        report.append(f"• Nakshatra: {data['nakshatra']}")
-        report.append(f"• Rahu Kaal: {data['rahu']}")
-        
-        if data['is_bhadra']:
-            report.append("• ALERT: Bhadra Kaal ACTIVE (High Friction)")
-            
-        for phase in ["Amavasya", "Purnima", "Ekadashi"]:
-            if phase in data['tithi']:
-                report.append(f"• Special Phase: {phase} Active")
-
+        report.append(f"\n--- {target_dt.strftime('%A, %d-%b-%Y')} ---")
+        report.extend(get_day_report(target_dt))
     return "\n".join(report)
 
 if __name__ == "__main__":
