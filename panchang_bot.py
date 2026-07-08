@@ -1,62 +1,68 @@
-import requests
-import pytz
-from datetime import datetime
 from vedastro import *
+from datetime import datetime, timedelta
+import pytz
+import requests
 
 # Configuration
 NTFY_TOPIC = "mumama"
+LOC_LAT, LOC_LON = 19.0760, 72.8777
+location = GeoLocation("Mumbai", LOC_LON, LOC_LAT)
 NL_TZ = pytz.timezone('Europe/Amsterdam')
 IN_TZ = pytz.timezone('Asia/Kolkata')
-LOC_LAT, LOC_LON = 19.0760, 72.8777
 
-def get_panchang_data():
-    # Setup API and Location
-    Calculate.SetAPIKey('FreeAPIUser')
-    location = GeoLocation("Mumbai", LOC_LON, LOC_LAT)
-    
-    # Get current time in India for calculation
-    now_in = datetime.now(IN_TZ)
+# Initialize API
+Calculate.SetAPIKey('FreeAPIUser')
+
+def get_data_for_time(dt):
+    """Fetches high-precision state at a specific time."""
     time_data = Time(
-        hour=now_in.hour, minute=now_in.minute, 
-        day=now_in.day, month=now_in.month, year=now_in.year, 
+        hour=dt.hour, minute=dt.minute, 
+        day=dt.day, month=dt.month, year=dt.year, 
         offset="+05:30", geolocation=location
     )
-
-    # Fetch Calculations
-    tithi = Calculate.LunarDay(time_data)
-    nakshatra = Calculate.MoonConstellation(time_data)
-    karana = Calculate.Karana(time_data)
     
-    # Construct Message
-    lines = [f"=== Vedic Insight: {now_in.strftime('%d-%b-%Y')} ==="]
-    lines.append(f"• Tithi: {tithi}")
-    lines.append(f"• Nakshatra: {nakshatra}")
+    # Get current state
+    tithi = str(Calculate.LunarDay(time_data))
+    nakshatra = str(Calculate.MoonConstellation(time_data))
+    karana = str(Calculate.Karana(time_data))
     
-    # Bhadra (Vishti Karana)
-    if "Vishti" in str(karana):
-        lines.append("• ALERT: Bhadra Kaal is ACTIVE (High Friction)")
+    # Get transition timestamps
+    next_tithi_change = Calculate.NextLunarDayChange(time_data)
+    next_nak_change = Calculate.NextConstellationChange(time_data)
     
-    # Phases and Special Days
-    tithi_str = str(tithi)
-    if "Amavasya" in tithi_str:
-        lines.append("• Today is AMAVASYA (New Moon Peak)")
-    elif "Purnima" in tithi_str:
-        lines.append("• Today is PURNIMA (Full Moon Peak)")
-    elif "Ekadashi" in tithi_str:
-        lines.append("• Today is EKADASHI (Holy Fasting Day)")
+    return {
+        "tithi": tithi,
+        "nakshatra": nakshatra,
+        "karana": karana,
+        "next_tithi_change": next_tithi_change,
+        "next_nak_change": next_nak_change
+    }
 
-    return "\n".join(lines)
+def generate_report():
+    report = ["=== 2-DAY DETAILED PANCHANG FORECAST ==="]
+    
+    # Loop for today and tomorrow
+    for i in range(2):
+        target_dt = datetime.now(IN_TZ) + timedelta(days=i)
+        data = get_data_for_time(target_dt)
+        
+        day_label = "Today" if i == 0 else "Tomorrow"
+        report.append(f"\n--- {day_label} ({target_dt.strftime('%d-%b')}) ---")
+        report.append(f"• Tithi: {data['tithi']} (Changes: {data['next_tithi_change']})")
+        report.append(f"• Nakshatra: {data['nakshatra']} (Changes: {data['next_nak_change']})")
+        
+        if "Vishti" in data['karana']:
+            report.append("• ALERT: Bhadra Kaal ACTIVE (High Friction)")
+            
+        if any(x in data['tithi'] for x in ["Amavasya", "Purnima", "Ekadashi"]):
+            report.append(f"• Special Phase: {data['tithi']} Active")
 
-def send_notification():
-    try:
-        message = get_panchang_data()
-        requests.post(
-            f"https://ntfy.sh/{NTFY_TOPIC}",
-            data=message.encode('utf-8'),
-            headers={"Title": "Daily Vedic Insight", "Priority": "high"}
-        )
-    except Exception as e:
-        print(f"Error: {e}")
+    return "\n".join(report)
 
 if __name__ == "__main__":
-    send_notification()
+    message = generate_report()
+    requests.post(
+        f"https://ntfy.sh/{NTFY_TOPIC}",
+        data=message.encode('utf-8'),
+        headers={"Title": "Accurate 2-Day Panchang", "Priority": "high"}
+    )
