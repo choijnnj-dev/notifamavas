@@ -1,3 +1,4 @@
-requests
+pyswisseph
 pytz
+requests
 tzdata
