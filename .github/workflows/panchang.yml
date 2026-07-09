@@ -1,27 +1,33 @@
-name: Verify Panchang API
 
+name: Financial Panchang Forecaster
+ 
 on:
-  workflow_dispatch:
-
+  workflow_dispatch: {}
+  schedule:
+    # 06:00 UTC every day. GitHub Actions cron is always UTC, so adjust this
+    # if you want the run to land at a specific Amsterdam local time
+    # (Amsterdam is UTC+1 in winter / UTC+2 in summer, CET/CEST).
+    - cron: "0 6 * * *"
+ 
 jobs:
-  verify:
+  forecast:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
-
+ 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-
+ 
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Run verification script
+ 
+      - name: Run Panchang forecast + send ntfy notification
         run: python panchang_forecast.py
-
+ 
       - name: Upload JSON output
         uses: actions/upload-artifact@v4
         with:
           name: panchang-json
           path: panchang_output.json
+ 
