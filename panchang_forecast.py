@@ -2,20 +2,19 @@
 Financial Panchang Forecaster
 ------------------------------
 Pulls Panchang data for the next two days (Mumbai coordinates, Amsterdam
-timezone) from vedicpanchanga.com, extracts every timing that matters for a
-financial/trading-oriented read (tithi, paksha, nakshatra, yoga, karana,
-Bhadra Kaal, Rahu Kalam, Yamaganda, Gulika Kalam, Dur Muhurtam, Amavasya /
-Purnima flags, plus the standard auspicious windows), and pushes a fully
-timestamped summary to an ntfy.sh topic.
+timezone) from vedicpanchanga.com, and pushes a short, one-line-per-item
+notification to ntfy.sh covering: Tithi (with Amavasya/Purnima flagged),
+Nakshatra, Bhadra Kaal, Rahu Kalam and Gulika Kalam.
 
-Every single timestamp in the output notification is explicit ISO-8601,
-already expressed in Europe/Amsterdam local time (the API returns it that
-way when you pass timezone=Europe/Amsterdam).
+All times shown are already in Amsterdam local time (the API returns them
+that way when timezone=Europe/Amsterdam is passed). Only the clock time is
+shown (e.g. "18:02"); a date is only added onto the end time when a window
+crosses over into the next calendar day (e.g. "18:02 -> 10 Jul 04:46").
 """
 
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 import requests
 
@@ -74,144 +73,74 @@ def is_purnima(tithi_name: str) -> bool:
     return "purnima" in tithi_name.lower()
 
 
-def window_line(label: str, window: dict) -> str | None:
-    """Return a formatted line for a single start/end window, or None if it
-    doesn't occur / wasn't returned for this day (so callers can omit it
-    entirely instead of printing a placeholder)."""
-    if not window or not window.get("start"):
+def fmt_range(start_iso: str, end_iso: str):
+    """Format a start/end pair as 'HH:MM -> HH:MM', only adding a date onto
+    the end time if it falls on a different calendar day than the start.
+    Returns None if either timestamp is missing."""
+    if not start_iso or not end_iso:
         return None
-    return f"  {label}: {window.get('start', 'n/a')}  ->  {window.get('end', 'n/a')}"
-
-
-def window_list_lines(label: str, windows: list) -> list:
-    """Return formatted lines for a list of windows (e.g. Bhadra, Varjyam).
-    Returns an empty list if there are no occurrences that day, so the
-    section can be skipped entirely rather than showing 'none today'."""
-    if not windows:
-        return []
-    lines = [f"  {label}:"]
-    for w in windows:
-        extra = ""
-        if "nakshatra" in w:
-            extra = f" [{w['nakshatra']}]"
-        elif "tithi" in w:
-            extra = f" [{w['tithi']}]"
-        elif "karana" in w:
-            extra = f" [{w['karana']}]"
-        lines.append(f"    - {w.get('start', 'n/a')}  ->  {w.get('end', 'n/a')}{extra}")
-    return lines
+    start = datetime.fromisoformat(start_iso)
+    end = datetime.fromisoformat(end_iso)
+    start_str = start.strftime("%H:%M")
+    if start.date() == end.date():
+        end_str = end.strftime("%H:%M")
+    else:
+        end_str = end.strftime("%d %b %H:%M")
+    return f"{start_str} -> {end_str}"
 
 
 def build_day_summary(data: dict) -> str:
-    d = data.get("date", "unknown")
-    loc = data.get("location", {})
-    sun_moon = data.get("sun_moon", {})
-    vara = data.get("vara", {})
+    raw_date = data.get("date", "unknown")
+    try:
+        header_date = datetime.fromisoformat(raw_date).strftime("%d %b %Y")
+    except ValueError:
+        header_date = raw_date
+
     panchang = data.get("panchang", {})
-    tithi = panchang.get("tithi", {})
-    nakshatra = panchang.get("nakshatra", {})
-    yoga = panchang.get("yoga", {})
-    karana = panchang.get("karana", {})
-    auspicious = data.get("auspicious_timings", {})
     inauspicious = data.get("inauspicious_timings", {})
 
-    tithi_name = tithi.get("name", "")
-    amavasya_flag = is_amavasya(tithi_name)
-    purnima_flag = is_purnima(tithi_name)
+    lines = [f"— {header_date} —"]
 
-    lines = []
-    lines.append("=" * 60)
-    lines.append(f"PANCHANG FORECAST — {d}")
-    lines.append(
-        f"Location: lat {loc.get('latitude')}, lon {loc.get('longitude')} "
-        f"(Mumbai) | Timezone: {loc.get('timezone')}"
-    )
-    lines.append(f"Vara (weekday): {vara.get('sanskrit', 'n/a')} / {vara.get('english', 'n/a')}")
-    lines.append("")
+    # Tithi (covers Amavasya / Purnima flagging directly on the line)
+    tithi_entries = panchang.get("tithi_sequence") or [panchang.get("tithi", {})]
+    for t in tithi_entries:
+        name = t.get("name", "")
+        rng = fmt_range(t.get("starts_at"), t.get("ends_at"))
+        if not name or not rng:
+            continue
+        marker = ""
+        if is_amavasya(name):
+            marker = "\U0001F311 "
+        elif is_purnima(name):
+            marker = "\U0001F315 "
+        lines.append(f"{marker}Tithi: {name} {rng}")
 
-    lines.append("SUN & MOON")
-    lines.append(f"  Sunrise:  {sun_moon.get('sunrise', 'n/a')}")
-    lines.append(f"  Sunset:   {sun_moon.get('sunset', 'n/a')}")
-    lines.append(f"  Moonrise: {sun_moon.get('moonrise', 'n/a')}")
-    lines.append(f"  Moonset:  {sun_moon.get('moonset', 'n/a')}")
-    lines.append(f"  Madhyahna (midday): {sun_moon.get('madhyahna', 'n/a')}")
-    lines.append("")
+    # Nakshatra
+    nakshatra_entries = panchang.get("nakshatra_sequence") or [panchang.get("nakshatra", {})]
+    for n in nakshatra_entries:
+        name = n.get("name", "")
+        rng = fmt_range(n.get("starts_at"), n.get("ends_at"))
+        if not name or not rng:
+            continue
+        lines.append(f"Nakshatra: {name} {rng}")
 
-    lines.append("TITHI / PAKSHA")
-    lines.append(f"  Tithi: {tithi_name}  (Paksha: {tithi.get('paksha', 'n/a')})")
-    lines.append(f"  Starts: {tithi.get('starts_at', 'n/a')}")
-    lines.append(f"  Ends:   {tithi.get('ends_at', 'n/a')}")
-    if amavasya_flag:
-        lines.append("  *** AMAVASYA (New Moon) IS ACTIVE — key financial/no-trade watch day ***")
-    if purnima_flag:
-        lines.append("  *** PURNIMA (Full Moon) IS ACTIVE — key financial/no-trade watch day ***")
-    lines.append("")
+    # Bhadra Kaal (can be zero, one, or more windows in a day)
+    for b in inauspicious.get("bhadra", []):
+        rng = fmt_range(b.get("start"), b.get("end"))
+        if rng:
+            lines.append(f"Bhadra Kaal: {rng}")
 
-    lines.append("NAKSHATRA")
-    lines.append(f"  {nakshatra.get('name', 'n/a')}")
-    lines.append(f"  Starts: {nakshatra.get('starts_at', 'n/a')}")
-    lines.append(f"  Ends:   {nakshatra.get('ends_at', 'n/a')}")
-    lines.append("")
+    # Rahu Kalam
+    rahu = inauspicious.get("rahu_kalam") or {}
+    rng = fmt_range(rahu.get("start"), rahu.get("end"))
+    if rng:
+        lines.append(f"Rahu Kalam: {rng}")
 
-    lines.append("YOGA")
-    lines.append(f"  {yoga.get('name', 'n/a')}")
-    lines.append(f"  Starts: {yoga.get('starts_at', 'n/a')}")
-    lines.append(f"  Ends:   {yoga.get('ends_at', 'n/a')}")
-    lines.append("")
-
-    lines.append("KARANA")
-    lines.append(f"  {karana.get('name', 'n/a')}  (is_bhadra: {karana.get('is_bhadra', False)})")
-    lines.append(f"  Starts: {karana.get('starts_at', 'n/a')}")
-    lines.append(f"  Ends:   {karana.get('ends_at', 'n/a')}")
-    lines.append("")
-
-    lines.append("BHADRA KAAL")
-    bhadra_periods = inauspicious.get("bhadra", [])
-    bhadra_lines = window_list_lines("Bhadra windows", bhadra_periods)
-    if bhadra_lines:
-        lines.extend(bhadra_lines)
-    else:
-        lines.append("  No Bhadra Kaal today.")
-    lines.append("")
-
-    inaus_lines = []
-    for label, key in [
-        ("Rahu Kalam", "rahu_kalam"),
-        ("Yamaganda", "yamaganda"),
-        ("Gulika Kalam", "gulika_kalam"),
-    ]:
-        line = window_line(label, inauspicious.get(key))
-        if line:
-            inaus_lines.append(line)
-    inaus_lines.extend(window_list_lines("Dur Muhurtam", inauspicious.get("dur_muhurtam", [])))
-    inaus_lines.extend(window_list_lines("Varjyam", inauspicious.get("varjyam", [])))
-    if inaus_lines:
-        lines.append("INAUSPICIOUS KAALS")
-        lines.extend(inaus_lines)
-        lines.append("")
-
-    ausp_lines = []
-    for label, key in [
-        ("Brahma Muhurta", "brahma_muhurta"),
-        ("Abhijit Muhurta", "abhijit"),
-        ("Vijay Muhurta", "vijay_muhurta"),
-        ("Godhuli Muhurta", "godhuli_muhurta"),
-        ("Nishita Muhurta", "nishita_muhurta"),
-    ]:
-        line = window_line(label, auspicious.get(key))
-        if line:
-            ausp_lines.append(line)
-    ausp_lines.extend(window_list_lines("Amrit Kalam", auspicious.get("amrit_kalam", [])))
-    ausp_lines.extend(
-        window_list_lines("Sarvartha Siddhi Yoga", auspicious.get("sarvartha_siddhi_yoga", []))
-    )
-    ausp_lines.extend(
-        window_list_lines("Amrita Siddhi Yoga", auspicious.get("amrita_siddhi_yoga", []))
-    )
-    if ausp_lines:
-        lines.append("AUSPICIOUS TIMINGS")
-        lines.extend(ausp_lines)
-    lines.append("=" * 60)
+    # Gulika Kalam
+    gulika = inauspicious.get("gulika_kalam") or {}
+    rng = fmt_range(gulika.get("start"), gulika.get("end"))
+    if rng:
+        lines.append(f"Gulika Kalam: {rng}")
 
     return "\n".join(lines)
 
@@ -244,9 +173,7 @@ def main():
             data = fetch_panchang(target_date)
         except requests.RequestException as exc:
             print(f"ERROR fetching Panchang for {target_date.isoformat()}: {exc}")
-            summaries.append(
-                f"PANCHANG FORECAST — {target_date.isoformat()}\n  ERROR: could not fetch data ({exc})"
-            )
+            summaries.append(f"— {target_date.strftime('%d %b %Y')} —\nError fetching data")
             continue
 
         all_data[target_date.isoformat()] = data
@@ -260,10 +187,11 @@ def main():
     full_message = "\n\n".join(summaries)
     print("\n========== NOTIFICATION BODY ==========\n")
     print(full_message)
+    print(f"\nMessage length: {len(full_message.encode('utf-8'))} bytes")
 
-    first_date = (date.today() + timedelta(days=DAY_OFFSETS[0])).isoformat()
-    last_date = (date.today() + timedelta(days=DAY_OFFSETS[-1])).isoformat()
-    title = f"Panchang Forecast: {first_date} to {last_date}"
+    first_date = (date.today() + timedelta(days=DAY_OFFSETS[0])).strftime("%d %b")
+    last_date = (date.today() + timedelta(days=DAY_OFFSETS[-1])).strftime("%d %b")
+    title = f"Panchang Forecast: {first_date} - {last_date}"
 
     send_ntfy(topic, title, full_message)
     print("\nDone.")
