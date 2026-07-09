@@ -74,15 +74,21 @@ def is_purnima(tithi_name: str) -> bool:
     return "purnima" in tithi_name.lower()
 
 
-def window_line(label: str, window: dict) -> str:
-    if not window:
-        return f"  {label}: n/a"
+def window_line(label: str, window: dict) -> str | None:
+    """Return a formatted line for a single start/end window, or None if it
+    doesn't occur / wasn't returned for this day (so callers can omit it
+    entirely instead of printing a placeholder)."""
+    if not window or not window.get("start"):
+        return None
     return f"  {label}: {window.get('start', 'n/a')}  ->  {window.get('end', 'n/a')}"
 
 
 def window_list_lines(label: str, windows: list) -> list:
+    """Return formatted lines for a list of windows (e.g. Bhadra, Varjyam).
+    Returns an empty list if there are no occurrences that day, so the
+    section can be skipped entirely rather than showing 'none today'."""
     if not windows:
-        return [f"  {label}: none today"]
+        return []
     lines = [f"  {label}:"]
     for w in windows:
         extra = ""
@@ -161,30 +167,50 @@ def build_day_summary(data: dict) -> str:
 
     lines.append("BHADRA KAAL")
     bhadra_periods = inauspicious.get("bhadra", [])
-    lines.extend(window_list_lines("Bhadra windows", bhadra_periods))
+    bhadra_lines = window_list_lines("Bhadra windows", bhadra_periods)
+    if bhadra_lines:
+        lines.extend(bhadra_lines)
+    else:
+        lines.append("  No Bhadra Kaal today.")
     lines.append("")
 
-    lines.append("INAUSPICIOUS KAALS")
-    lines.append(window_line("Rahu Kalam", inauspicious.get("rahu_kalam")))
-    lines.append(window_line("Yamaganda", inauspicious.get("yamaganda")))
-    lines.append(window_line("Gulika Kalam", inauspicious.get("gulika_kalam")))
-    lines.extend(window_list_lines("Dur Muhurtam", inauspicious.get("dur_muhurtam", [])))
-    lines.extend(window_list_lines("Varjyam", inauspicious.get("varjyam", [])))
-    lines.append("")
+    inaus_lines = []
+    for label, key in [
+        ("Rahu Kalam", "rahu_kalam"),
+        ("Yamaganda", "yamaganda"),
+        ("Gulika Kalam", "gulika_kalam"),
+    ]:
+        line = window_line(label, inauspicious.get(key))
+        if line:
+            inaus_lines.append(line)
+    inaus_lines.extend(window_list_lines("Dur Muhurtam", inauspicious.get("dur_muhurtam", [])))
+    inaus_lines.extend(window_list_lines("Varjyam", inauspicious.get("varjyam", [])))
+    if inaus_lines:
+        lines.append("INAUSPICIOUS KAALS")
+        lines.extend(inaus_lines)
+        lines.append("")
 
-    lines.append("AUSPICIOUS TIMINGS")
-    lines.append(window_line("Brahma Muhurta", auspicious.get("brahma_muhurta")))
-    lines.append(window_line("Abhijit Muhurta", auspicious.get("abhijit")))
-    lines.append(window_line("Vijay Muhurta", auspicious.get("vijay_muhurta")))
-    lines.append(window_line("Godhuli Muhurta", auspicious.get("godhuli_muhurta")))
-    lines.append(window_line("Nishita Muhurta", auspicious.get("nishita_muhurta")))
-    lines.extend(window_list_lines("Amrit Kalam", auspicious.get("amrit_kalam", [])))
-    lines.extend(
+    ausp_lines = []
+    for label, key in [
+        ("Brahma Muhurta", "brahma_muhurta"),
+        ("Abhijit Muhurta", "abhijit"),
+        ("Vijay Muhurta", "vijay_muhurta"),
+        ("Godhuli Muhurta", "godhuli_muhurta"),
+        ("Nishita Muhurta", "nishita_muhurta"),
+    ]:
+        line = window_line(label, auspicious.get(key))
+        if line:
+            ausp_lines.append(line)
+    ausp_lines.extend(window_list_lines("Amrit Kalam", auspicious.get("amrit_kalam", [])))
+    ausp_lines.extend(
         window_list_lines("Sarvartha Siddhi Yoga", auspicious.get("sarvartha_siddhi_yoga", []))
     )
-    lines.extend(
+    ausp_lines.extend(
         window_list_lines("Amrita Siddhi Yoga", auspicious.get("amrita_siddhi_yoga", []))
     )
+    if ausp_lines:
+        lines.append("AUSPICIOUS TIMINGS")
+        lines.extend(ausp_lines)
     lines.append("=" * 60)
 
     return "\n".join(lines)
